@@ -1,0 +1,77 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import classification_report, accuracy_score
+
+DATA_FILE = 'IRIS.csv'
+TARGET_VARIABLE = 'species'
+FEATURES = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width']
+
+def load_data(filepath):
+    """
+    Loads the Iris dataset from a CSV file.
+    """
+    try:
+        data = pd.read_csv(filepath)
+        print(f"Successfully loaded '{filepath}'. Shape: {data.shape}")
+        return data
+    except FileNotFoundError:
+        print(f"Error: The file '{filepath}' was not found.")
+        return None
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return None
+
+def main():
+    """
+    Main function to load data, train the classifier, and evaluate.
+    """
+    data = load_data(DATA_FILE)
+    if data is None:
+        return
+
+    if data.isnull().values.any():
+        print("Data contains missing values. Dropping rows with NaNs.")
+        data = data.dropna()
+        print(f"New shape after dropping NaNs: {data.shape}")
+
+    try:
+        X = data[FEATURES]
+        y = data[TARGET_VARIABLE]
+    except KeyError as e:
+        print(f"Error: Missing expected column - {e}. Please check the CSV file.")
+        return
+        
+    target_names = sorted(y.unique())
+    print(f"Found {len(target_names)} species: {', '.join(target_names)}\n")
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    print(f"Data split into {len(X_train)} training samples and {len(X_test)} testing samples.\n")
+
+    model_pipeline = Pipeline(steps=[
+        ('scaler', StandardScaler()),
+        ('classifier', LogisticRegression(random_state=42))
+    ])
+
+    print("Training the Logistic Regression model...")
+    model_pipeline.fit(X_train, y_train)
+    print("Model training complete.\n")
+
+    print("Evaluating model performance on the test set...")
+    y_pred = model_pipeline.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    print(f"--- Model Evaluation Results ---")
+    print(f"Accuracy: {accuracy:.4f} ({accuracy * 100:.2f}%)")
+    
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred, target_names=target_names))
+
+if _name_ == "_main_":
+    main()
