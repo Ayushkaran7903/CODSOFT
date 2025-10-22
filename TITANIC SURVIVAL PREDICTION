@@ -1,0 +1,98 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+DATA_FILE = 'Titanic-Dataset.csv'
+TARGET_VARIABLE = 'Survived'
+CATEGORICAL_FEATURES = ['Sex', 'Embarked']
+NUMERICAL_FEATURES = ['Pclass', 'Age', 'SibSp', 'Parch', 'Fare']
+
+def load_data(filepath):
+    """Loads the Titanic dataset from a CSV file."""
+    try:
+        return pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: The file '{filepath}' was not found.")
+        return None
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return None
+
+def build_preprocessing_pipeline():
+    """
+    Creates a preprocessing pipeline for numerical and categorical features.
+    
+    Numerical pipeline:
+    1. Imputes missing 'Age' and 'Fare' values using the median.
+    
+    Categorical pipeline:
+    1. Imputes missing 'Embarked' values using the most frequent value.
+    2. One-hot encodes 'Sex' and 'Embarked'.
+    """
+    
+    numerical_transformer = SimpleImputer(strategy='median')
+    
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+    ])
+    
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numerical_transformer, NUMERICAL_FEATURES),
+            ('cat', categorical_transformer, CATEGORICAL_FEATURES)
+        ],
+        remainder='drop'
+    )
+    
+    return preprocessor
+
+def main():
+    """Main function to run the data loading, preprocessing, training, and evaluation."""
+    
+    data = load_data(DATA_FILE)
+    if data is None:
+        return
+        
+    print(f"Successfully loaded '{DATA_FILE}'.")
+    print(f"Dataset shape: {data.shape}\n")
+
+    try:
+        X = data[NUMERICAL_FEATURES + CATEGORICAL_FEATURES]
+        y = data[TARGET_VARIABLE]
+    except KeyError as e:
+        print(f"Error: Missing expected column - {e}. Please check the CSV file.")
+        return
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    print(f"Data split into {len(X_train)} training samples and {len(X_test)} testing samples.\n")
+
+    preprocessor = build_preprocessing_pipeline()
+    
+    model_pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))
+    ])
+    
+    print("Training the Random Forest model...")
+    model_pipeline.fit(X_train, y_train)
+    print("Model training complete.\n")
+    
+    print("Evaluating model performance on the test set...")
+    y_pred = model_pipeline.predict(X_test)
+    
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"--- Model Evaluation Results ---")
+    print(f"Accuracy: {accuracy:.4f} ({accuracy * 100:.2f}%)")
+    
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred, target_names=['Did not survive (0)', 'Survived (1)']))
+
+if _name_ == "_main_":
+    main()
